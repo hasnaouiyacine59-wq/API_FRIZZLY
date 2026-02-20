@@ -483,5 +483,26 @@ def admin_login():
     except Exception as e:
         return jsonify({'error': 'Login failed'}), 500
 
+@app.route('/api/admin/fcm-token', methods=['POST'])
+@require_admin
+def save_admin_fcm_token():
+    """Save FCM token for admin"""
+    try:
+        data = request.json
+        token = data.get('token')
+        
+        if not token:
+            return jsonify({'error': 'Token required'}), 400
+        
+        # Save token to admin document
+        db.collection('admins').document(request.user_id).update({
+            'fcmToken': token,
+            'fcmTokenUpdated': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to save token'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
