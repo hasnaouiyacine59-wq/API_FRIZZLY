@@ -400,9 +400,36 @@ def admin_update_order(order_id):
     """Update order (admin only)"""
     try:
         data = request.json
+        
+        # Get order to find userId
+        order_doc = db.collection('orders').document(order_id).get()
+        if not order_doc.exists:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        order_data = order_doc.to_dict()
+        user_id = order_data.get('userId')
+        
+        # Update order
         db.collection('orders').document(order_id).update(data)
+        
+        # Create notification if status changed
+        if 'status' in data and user_id:
+            new_status = data['status']
+            notification_data = {
+                'userId': user_id,
+                'title': f'Order {new_status.replace("_", " ").title()}',
+                'body': f'Your order #{order_data.get("orderId", order_id)[-8:]} is now {new_status.replace("_", " ").lower()}',
+                'type': 'order_update',
+                'orderId': order_id,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'isRead': False
+            }
+            db.collection('notifications').add(notification_data)
+            print(f'✅ Notification created for user {user_id}: {new_status}')
+        
         return jsonify({'success': True}), 200
     except Exception as e:
+        print(f'❌ Error updating order: {e}')
         return jsonify({'error': 'Failed to update order'}), 500
 
 @app.route('/api/admin/orders/<order_id>', methods=['DELETE'])
