@@ -449,21 +449,42 @@ def admin_get_all_users():
 def admin_get_user(user_id):
     """Get single user details (admin only)"""
     try:
-        # Try Firestore first
+        # Check Firestore for full user profile (includes device info)
         user_doc = db.collection('users').document(user_id).get()
+        
         if user_doc.exists:
-            user = {'id': user_doc.id, **user_doc.to_dict()}
+            # User profile exists in Firestore with all details
+            user_data = user_doc.to_dict()
+            
+            # Convert Firestore Timestamp to milliseconds
+            if 'lastLogin' in user_data:
+                try:
+                    user_data['lastLogin'] = int(user_data['lastLogin'].timestamp() * 1000)
+                except:
+                    pass
+            
+            if 'createdAt' in user_data:
+                try:
+                    user_data['createdAt'] = int(user_data['createdAt'].timestamp() * 1000)
+                except:
+                    pass
+            
+            user = {'id': user_doc.id, **user_data}
         else:
-            # Fallback to Firebase Auth
-            user_record = auth.get_user(user_id)
-            user = {
-                'id': user_record.uid,
-                'email': user_record.email,
-                'displayName': user_record.display_name or 'N/A',
-                'phoneNumber': user_record.phone_number or 'N/A',
-                'createdAt': user_record.user_metadata.creation_timestamp,
-                'lastSignIn': user_record.user_metadata.last_sign_in_timestamp
-            }
+            # Fallback to Firebase Auth (basic info only)
+            try:
+                user_record = auth.get_user(user_id)
+                user = {
+                    'id': user_record.uid,
+                    'email': user_record.email,
+                    'displayName': user_record.display_name or 'N/A',
+                    'phoneNumber': user_record.phone_number or 'N/A',
+                    'phone': user_record.phone_number or 'N/A',
+                    'createdAt': user_record.user_metadata.creation_timestamp,
+                    'lastSignIn': user_record.user_metadata.last_sign_in_timestamp
+                }
+            except:
+                return jsonify({'error': 'User not found'}), 404
         
         # Get user's orders
         orders = [{'id': doc.id, **doc.to_dict()} 
