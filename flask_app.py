@@ -397,7 +397,7 @@ def admin_get_order(order_id):
 @app.route('/api/admin/orders/<order_id>', methods=['PUT'])
 @require_admin
 def admin_update_order(order_id):
-    """Update order (admin only)"""
+    """Update order (admin only) - with notifications"""
     try:
         data = request.json
         
@@ -430,7 +430,9 @@ def admin_update_order(order_id):
         return jsonify({'success': True}), 200
     except Exception as e:
         print(f'❌ Error updating order: {e}')
-        return jsonify({'error': 'Failed to update order'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/orders/<order_id>', methods=['DELETE'])
 @require_admin
