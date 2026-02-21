@@ -444,6 +444,36 @@ def admin_get_all_users():
         print(f"Error fetching users: {e}")
         return jsonify({'error': 'Failed to fetch users'}), 500
 
+@app.route('/api/admin/users/<user_id>', methods=['GET'])
+@require_admin
+def admin_get_user(user_id):
+    """Get single user details (admin only)"""
+    try:
+        # Try Firestore first
+        user_doc = db.collection('users').document(user_id).get()
+        if user_doc.exists:
+            user = {'id': user_doc.id, **user_doc.to_dict()}
+        else:
+            # Fallback to Firebase Auth
+            user_record = auth.get_user(user_id)
+            user = {
+                'id': user_record.uid,
+                'email': user_record.email,
+                'displayName': user_record.display_name or 'N/A',
+                'phoneNumber': user_record.phone_number or 'N/A',
+                'createdAt': user_record.user_metadata.creation_timestamp,
+                'lastSignIn': user_record.user_metadata.last_sign_in_timestamp
+            }
+        
+        # Get user's orders
+        orders = [{'id': doc.id, **doc.to_dict()} 
+                 for doc in db.collection('orders').where('userId', '==', user_id).stream()]
+        
+        return jsonify({'user': user, 'orders': orders}), 200
+    except Exception as e:
+        print(f"Error fetching user: {e}")
+        return jsonify({'error': 'User not found'}), 404
+
 @app.route('/api/admin/analytics', methods=['GET'])
 @require_admin
 def admin_get_analytics():
