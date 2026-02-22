@@ -197,6 +197,31 @@ def submit_order():
         transaction = db.transaction()
         order_id, order_number = create_order_with_counter(transaction)
 
+        # Send notification to admin about new order
+        try:
+            admins = db.collection('admins').stream()
+            for admin in admins:
+                admin_data = admin.to_dict()
+                fcm_token = admin_data.get('fcmToken')
+                if fcm_token:
+                    message = messaging.Message(
+                        data={
+                            'notification_type': 'new_order',
+                            'order_id': order_id,
+                            'title': '🆕 New Order',
+                            'body': f'Order {order_id} received - ${order_data.get("totalAmount", 0):.2f}'
+                        },
+                        android=messaging.AndroidConfig(
+                            priority='high'
+                        ),
+                        token=fcm_token
+                    )
+                    messaging.send(message)
+                    print(f'✅ Admin notification sent for order {order_id}')
+        except Exception as e:
+            print(f'⚠️ Failed to send admin notification: {e}')
+            # Don't fail the order if notification fails
+
         return jsonify({
             'success': True,
             'orderId': order_id,
